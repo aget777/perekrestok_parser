@@ -32,15 +32,15 @@ import warnings
 # In[2]:
 
 
-host_mysql = '91.185.88.10'
-port_mysql = '3306'
+host_mysql = config.host_mysql
+port_mysql = config.port_mysql
 user_mysql = config.db_mysql_login
 password_mysql = config.db_mysql_pass
 
-db_name = 'tenant_perekrestok_project'
+db_name = config.db_name
 
-host_mssql = 'REGRU-54856\MSSQLSERVER01'
-port_mssql = '1433'
+host_mssql = config.host_mssql
+port_mssql = config.port_mssql
 user_mssql = config.db_mssql_login
 password_mssql = config.db_mssql_pass
 
