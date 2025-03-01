@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# In[1]:
 
 
 import pandas as pd
@@ -24,7 +24,7 @@ media_plan_link = config.media_plan_link
 db_name = config.db_name
 
 
-# In[3]:
+# In[2]:
 
 
 # Включаем отображение всех колонок
@@ -40,7 +40,7 @@ pd.set_option('display.max_rows', None)
 
 
 
-# In[4]:
+# In[3]:
 
 
 # функция забирает медиаплан по УРЛ ссылке
@@ -67,10 +67,12 @@ def get_base_mediaplan(media_plan_link):
     # добавляем расчет НДС
     media_plan_df['costs_nds'] = media_plan_df['costs_without_nds'] * 1.2
     media_plan_df['account_name'] = 'x5_perekrestok'
+# из названия РК достаем название общего флайта на текущем периоде
+    media_plan_df['flight_name'] = media_plan_df['weborama_camp_name'].apply(lambda x: x[x.find('_202')-2: x.find('_202')+5])
     return media_plan_df
 
 
-# In[5]:
+# In[4]:
 
 
 # Функция обновления справочников Источников в БД MSSQL
@@ -110,7 +112,7 @@ def update_source_dict(media_plan_df):
     # return df_sources
 
 
-# In[18]:
+# In[5]:
 
 
 # Функция проверяет БД MySQL и пересоздает основной справочник аккаунтов в MSSQL
@@ -124,11 +126,13 @@ def update_full_accounts_dict():
     table_name = 'source_types'
     df_sources = get_mysql_full_dict_table(db_name, table_name)
     df_sources = df_sources.drop(['created_at', 'updated_at'], axis=1)
+    df_sources = df_sources.rename(columns={'id': 'source_type_id'})
     
     df_accounts = df_accounts[['id', 'source_type_id', 'account_name', 'account_id', 'acc_id_flag']]
     df_accounts['weborama_account_name'] = 'x5_perekrestok'
     # добавляем к справочнику Аккаунтов названия Источников
-    df_accounts = df_accounts.merge(df_sources[['id', 'utm_source_metrika']], how='left', left_on='id', right_on='id')
+    df_accounts = df_accounts.merge(df_sources[['source_type_id', 'utm_source_metrika']], how='left', 
+                                    left_on='source_type_id', right_on='source_type_id')
     df_accounts = df_accounts.rename(columns={'utm_source_metrika': 'source'})
     
     
@@ -171,7 +175,7 @@ def update_full_accounts_dict():
     downloadTableToDB(db_name, table_name, df_union_accounts)
 
 
-# In[28]:
+# In[6]:
 
 
 # функция добавляения новых аккаунтов в Общий справочник аккаунтов и в справочник аккаунтов Веборама
@@ -233,14 +237,14 @@ def append_new_accs_to_dicts(media_plan_df):
     downloadTableToDB(db_name, table_name, weborama_accs_df)
 
 
-# In[32]:
+# In[7]:
 
 
 # создаем функцию, которая перезаписывает справочник кампаний Веборама
 def update_weborama_camp_dict(media_plan_df):
     # формируем датаФрейм для справочника кампаний
     camp_dict_df = media_plan_df[['weborama_camp_name', 'flight', 'type', 'category', 'product', 'source_type_id', 'source', 
-                              'main_acc_id', 'weborama_key_camp', 'date_start', 'date_finish']]
+                              'main_acc_id', 'weborama_key_camp', 'date_start', 'date_finish', 'flight_name']]
     # удалаяем дубликаты
     camp_dict_df = camp_dict_df.drop_duplicates(['weborama_key_camp'])
     
@@ -263,7 +267,8 @@ def update_weborama_camp_dict(media_plan_df):
             'weborama_key_camp nvarchar(200)',
             'inner_campaign_id smallint',
             'date_start nvarchar(10)',
-            'date_finish nvarchar(10)']
+            'date_finish nvarchar(10)',
+            'flight_name nvarchar(10)']
     
     # создаем пустую таблицу cправочник Кампаний в БД
     table_name = 'weborama_camp_dict'
@@ -276,7 +281,7 @@ def update_weborama_camp_dict(media_plan_df):
     downloadTableToDB(db_name, table_name, camp_dict_df)
 
 
-# In[36]:
+# In[8]:
 
 
 # создаем функцию, чтобы разбить Медиаплан по дням
@@ -292,6 +297,7 @@ def parse_mediaplan_by_days(media_plan_df):
         # print(start_date)
         calendar_df = pd.DataFrame({"date": pd.date_range(start_date, end_date)})
         calendar_df['date'] = pd.to_datetime(calendar_df['date'])
+        calendar_df['end_of_week'] = calendar_df['date'].apply(get_end_of_week)
         # передаем общие характеристики Кампании
         calendar_df['flight'] = df['flight'].iloc[0]
         calendar_df['product'] = df['product'].iloc[0]
@@ -304,7 +310,7 @@ def parse_mediaplan_by_days(media_plan_df):
         calendar_df['source_type_id'] = df['source_type_id'].iloc[0]
         calendar_df['main_acc_id'] = df['main_acc_id'].iloc[0]
         calendar_df['weborama_key_camp'] = df['weborama_key_camp'].iloc[0]
-        
+        calendar_df['flight_name'] = df['flight_name'].iloc[0]
         # формируем разбивку показателей на каждый отдельный день
         calendar_df['impressions_plan'] = df['impressions_plan'].iloc[0]
         calendar_df['clicks_plan'] = df['clicks_plan'].iloc[0]
@@ -317,6 +323,8 @@ def parse_mediaplan_by_days(media_plan_df):
         calendar_df['date_finish'] = df['date_finish'].iloc[0]
         calendar_df['rest_days'] = ((calendar_df['date_finish'] - calendar_df['date']).dt.days) + 1
         calendar_df['days_in_flight'] = df['days_in_flight'].iloc[0]
+        # определяем дату отчета (либо конец недели, либо окончание периода)
+        calendar_df['report_date'] = calendar_df.apply(get_report_date, axis=1)
         # добавляем в общий датаФрейм
         media_plan_by_days = pd.concat([media_plan_by_days, calendar_df])
     # Медиаплан в разбивке по дням
@@ -326,6 +334,7 @@ def parse_mediaplan_by_days(media_plan_df):
     db_vars_str = [
                 'date nvarchar(10)',
                 'flight nvarchar(100)',
+                'flight_name nvarchar(10)',
                 'product nvarchar(100)',
                 'category nvarchar(100)',
                 'type nvarchar(100)',
@@ -344,8 +353,10 @@ def parse_mediaplan_by_days(media_plan_df):
                 'views_plan float',
                 'date_start nvarchar(10)',
                 'date_finish nvarchar(10)',
+                'end_of_week nvarchar(10)',
                 'rest_days smallint',
-                'days_in_flight smallint'
+                'days_in_flight smallint',
+                'report_date nvarchar(10)'
     ]
 
 
@@ -363,7 +374,7 @@ def parse_mediaplan_by_days(media_plan_df):
         
 
 
-# In[31]:
+# In[9]:
 
 
 def merge_source_type_id(media_plan_df):
@@ -379,7 +390,7 @@ def merge_source_type_id(media_plan_df):
     return media_plan_df
 
 
-# In[30]:
+# In[10]:
 
 
 def merge_full_acc_id(media_plan_df):
@@ -401,13 +412,29 @@ def merge_full_acc_id(media_plan_df):
     return media_plan_df
 
 
-# In[ ]:
+# In[11]:
 
 
+# функцию, которая определяет конец недели
+def get_end_of_week(date):
+    start = date - timedelta(days=date.weekday())
+    end = (start + timedelta(days=6)).strftime('%Y-%m-%d')
+    return end
 
 
+# In[12]:
 
-# In[34]:
+
+# создаем функцию, которая определяет дату отчета
+# если конец недели меньше окончания периода, то дата отчета равна концу недели
+# иначе равна концу периода
+def get_report_date(row):
+    if row['date_finish'] > pd.to_datetime(row['end_of_week']):
+        return row['end_of_week']
+    return row['date_finish'].date()
+
+
+# In[13]:
 
 
 def main_mediaplan_parse_func(media_plan_link):
@@ -439,7 +466,7 @@ def main_mediaplan_parse_func(media_plan_link):
     media_plan_df['date_start'] = pd.to_datetime(media_plan_df['date_start'])
     media_plan_df['date_finish'] = media_plan_df['date_finish'].apply(lambda x: datetime.strptime(x, '%d.%m.%Y').strftime('%Y-%m-%d'))
     media_plan_df['date_finish'] = pd.to_datetime(media_plan_df['date_finish'])
-    
+
     # считаем общее кол-во дней во Флайте
     media_plan_df['days_in_flight'] = ((media_plan_df['date_finish'] - media_plan_df['date_start']).dt.days) + 1
 
@@ -456,7 +483,7 @@ def main_mediaplan_parse_func(media_plan_link):
     parse_mediaplan_by_days(media_plan_df)
 
 
-# In[42]:
+# In[15]:
 
 
 # main_mediaplan_parse_func(media_plan_link)
@@ -510,14 +537,14 @@ def main_mediaplan_parse_func(media_plan_link):
 
 
 
-# In[6]:
+# In[ ]:
 
 
 # # загружаем Медиаплан из Гугл докс и проводим первичную обработку
 # media_plan_df = get_base_mediaplan(media_plan_link)
 
 
-# In[38]:
+# In[ ]:
 
 
 # # если в Медиаплане появились новые источники
@@ -526,58 +553,16 @@ def main_mediaplan_parse_func(media_plan_link):
 # update_source_dict(media_plan_df)
 
 
-# In[39]:
+# In[ ]:
 
 
 # update_full_accounts_dict()
 
 
-# In[40]:
+# In[ ]:
 
 
 # append_new_accs_to_dicts(media_plan_df)
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
 
 
 # In[ ]:
