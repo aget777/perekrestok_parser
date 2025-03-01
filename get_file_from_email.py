@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
+# In[7]:
 
 
 import imaplib
@@ -13,8 +13,9 @@ import re
 import config
 import os
 import sys
+from datetime import datetime
 
-
+file_path_storage = config.files_storage
 file_path = config.email_file_path
 # keywords_list = ['X5_Perekrestok_Geo', 'Weborama_Standart_Weekly']
 
@@ -85,11 +86,17 @@ def get_file_from_email(keyword):
             # на всякий случай, если заголовка нет, то присваимваем свой
             # if not(filename): 
             #     filename = "weborama_report_X5_Perekrestok_Geo.xlsx"
-            filename = keyword + '.xlsx'
+            curr_date = datetime.now().date().strftime('%Y_%m_%d')
+            filename = keyword + '_' + str(curr_date) + '.xlsx'
             print (f'---- нашли вложение {filename}')
             fp = open(os.path.join(file_path, filename), 'wb')
             fp.write(part.get_payload(decode=1))
             fp.close
+            
+            fp2 = open(os.path.join(file_path_storage, filename), 'wb')
+            fp2.write(part.get_payload(decode=1))
+            fp2.close
+            
             print ("-- удаляем письмо");
             imap.store(target_mail_id, '+FLAGS', '(\Deleted)')  
             imap.expunge()
