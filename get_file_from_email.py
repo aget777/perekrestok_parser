@@ -14,6 +14,7 @@ import config
 import os
 import sys
 from datetime import datetime
+from datetime import timedelta
 
 file_path_storage = config.files_storage
 file_path = config.email_file_path
@@ -86,7 +87,7 @@ def get_file_from_email(keyword):
             # на всякий случай, если заголовка нет, то присваимваем свой
             # if not(filename): 
             #     filename = "weborama_report_X5_Perekrestok_Geo.xlsx"
-            curr_date = datetime.now().date().strftime('%Y_%m_%d')
+            curr_date = (datetime.now().date()  - timedelta(days=1)).strftime('%Y_%m_%d')
             filename = keyword + '_' + str(curr_date) + '.xlsx'
             print (f'---- нашли вложение {filename}')
             fp = open(os.path.join(file_path, filename), 'wb')

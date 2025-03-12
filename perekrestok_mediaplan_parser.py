@@ -78,17 +78,24 @@ def get_base_mediaplan(media_plan_link):
 # Функция обновления справочников Источников в БД MSSQL
 # Если в медиаплане появились новые источники, то перезаписываем таблицу Справочников
 def update_source_dict(media_plan_df):
-    full_source_types = config.full_source_types #'full_source_types'
-    df_sources = get_mssql_table(db_name, full_source_types)
-    # забираем список уникальных источников из справочника MSSQL
-    df_sources_unique = list(df_sources['utm_source_metrika'].unique())
+    # создаем справочник источников full_source_types
+    # заюираем справочник Источников из MySQL
+    # необходимо его пересоздать в MSSQL
+    # при повторных подключениях будем работать именно с MSSQL
+    source_types = config.source_types #'source_types'
+    df_sources = get_mysql_full_dict_table(db_name, source_types)
+    
+    df_sources = df_sources.drop(['created_at', 'updated_at'], axis=1)
     
     # забираем список уникальных источников из Медиаплана
     media_plan_sources = list(media_plan_df['source'].unique())
-    
+        
     # оставляем названия Истоников, которых нет в БД MSSQL
-    media_plan_sources = list(set(media_plan_sources) - set(df_sources_unique))
-# если в списке есть новые источники, то запускаем блок добавления
+    media_plan_sources = list(set(media_plan_sources) - set(df_sources['utm_source_metrika']))
+    # сортируем оставшиеся значения
+    media_plan_sources = sorted(media_plan_sources)
+    
+    # запускаем блок добавления ИД
     if len(media_plan_sources) > 0:
         max_source_id = df_sources['id'].max() # забираем максимальный ИД из справояника MSSQL
         col_names = list(df_sources.columns)
@@ -106,9 +113,20 @@ def update_source_dict(media_plan_df):
                 'utm_source_metrika': source})
         
         df = pd.DataFrame(d)
-        downloadTableToDB(db_name, full_source_types, df)
+        
         df_sources = pd.concat([df_sources, df])# добавляем к исходному справочнику новые данные
-
+        
+        source_int_lst = config.source_int_lst
+        df_sources = normalize_columns_types(df_sources, source_int_lst)
+        
+        # создаем пустую таблицу Справочников в БД
+        full_source_types = config.full_source_types
+        # создаем общий список названий полей и типов данных 
+        # этот список передаем в БД MSSQL для создания новой таблицы
+        sources_vars_list = config.sources_vars_list
+        
+        createDBTable(db_name, full_source_types, sources_vars_list, flag='drop')
+        downloadTableToDB(db_name, full_source_types, df_sources)
     # return df_sources
 
 
@@ -116,47 +134,66 @@ def update_source_dict(media_plan_df):
 
 
 # Функция проверяет БД MySQL и пересоздает основной справочник аккаунтов в MSSQL
-def update_full_accounts_dict():
-    # Сначала Забираем общий справочник Аккаунтов из MYSQL
-    # там могли появиться новые аккаунты Директ, ВК и тд
+def update_full_accounts_dict(media_plan_df):
+    # забираем справочник аккаунтов из БД MySQL
     accounts = config.accounts #'accounts'
     df_accounts = get_mysql_full_dict_table(db_name, accounts)
     
-    # Забираем справочник источников, чтобы добавить название источника в справочник Аккаунтов
+    # забираем справочник источников из БД MySQL
     source_types = config.source_types #'source_types'
     df_sources = get_mysql_full_dict_table(db_name, source_types)
+    # убираем лишние поля
     df_sources = df_sources.drop(['created_at', 'updated_at'], axis=1)
     df_sources = df_sources.rename(columns={'id': 'source_type_id'})
-    
     df_accounts = df_accounts[['id', 'source_type_id', 'account_name', 'account_id', 'acc_id_flag']]
     df_accounts['weborama_account_name'] = 'x5_perekrestok'
-    # добавляем к справочнику Аккаунтов названия Источников
-    df_accounts = df_accounts.merge(df_sources[['source_type_id', 'utm_source_metrika']], how='left', 
-                                    left_on='source_type_id', right_on='source_type_id')
+    
+    # # добавляем к справочнику Аккаунтов названия Источников
+    df_accounts = df_accounts.merge(df_sources[['source_type_id', 'utm_source_metrika']], how='left', left_on='source_type_id', 
+                                    right_on='source_type_id')
     df_accounts = df_accounts.rename(columns={'utm_source_metrika': 'source'})
-    
-    
-    # забираем из БД MSSQL существующий справочник аккаунтов Веборама
-    weborama_accounts = config.weborama_accounts #'weborama_accounts'
-    df_weborama_accounts = get_mssql_table(db_name, weborama_accounts)
-    df_weborama_accounts = df_weborama_accounts.sort_values('source_type_id')
 
-    # Переприсваиваем ИД аккаунтов
-    max_account_id = df_accounts['id'].max()+1 # забираем максимальный ИД из справояника MSSQL
-    # создаем нумерацию новых аккаунтов, начиная с последней записи из общего справочника аккаунтов
-    ids_list = [i for i in range(max_account_id, len(df_weborama_accounts)+max_account_id)]
-    # добавляем новое поле к таблице аккаунтов из Веборамы
-    df_weborama_accounts['id'] = pd.Series(ids_list)
-    # добавляем ведущий ноль к ИД аккаунта
-    df_weborama_accounts['acc_id_flag'] = df_weborama_accounts['id'].apply(lambda x: '0' + str(x) if len(str(x))<2 else str(x))
-    # добавляем поле с названием аккаунта, чтобы сошлись таблицы 
-    df_weborama_accounts['weborama_account_name'] = df_weborama_accounts['account_name']
-    # создаем итоговый датаФрейм для записи с Общим справочником аккаунтов
-    df_union_accounts = pd.concat([df_accounts, df_weborama_accounts])
-    # Общий Справочник Аккаунтов
-    # создаем общий список названий полей и типов данных 
-    # этот список передаем в БД MSSQL для создания новой таблицы
+    # забираем из медиаплана поля с источником и названием аккаунта(одинаковое для всех)
+    weborama_accounts_df = media_plan_df[['source', 'account_name']].drop_duplicates()
+    # убираем дубликаты названий Источников из датаФрейма Веборамы
+    sources_list = list(set(weborama_accounts_df['source']) - set(df_accounts['source']))
+    weborama_accounts_df = weborama_accounts_df[weborama_accounts_df['source'].isin(sources_list)]
     
+    # забираем справочник источников из БД MSSQL
+    full_source_types = config.full_source_types #'source_types'
+    df_sources = get_mssql_table(db_name, full_source_types)
+   
+    # добавляем в Медиаплан ИД Источников
+    weborama_accounts_df = weborama_accounts_df.merge(df_sources[['id', 'utm_source_metrika']], 
+                                                    how='left', left_on='source', right_on='utm_source_metrika')
+    weborama_accounts_df = weborama_accounts_df.drop('source', axis=1)
+    weborama_accounts_df = weborama_accounts_df.rename(columns={'id': 'source_type_id','utm_source_metrika': 'source'})
+
+    # удаляем дубликаты и оставляем только нужные поля
+    weborama_accounts_df = weborama_accounts_df[['source_type_id', 'account_name', 'source']].drop_duplicates()
+    weborama_accounts_df['weborama_account_name'] = weborama_accounts_df['account_name']
+    # сортируем список
+    weborama_accounts_df = weborama_accounts_df.sort_values(['source'])
+    
+    # для аккаунтов из Веборамы добавляем ИД начиная с 1
+    ids_list = [i for i in range(1, len(weborama_accounts_df)+1)]
+    weborama_accounts_df = weborama_accounts_df.reset_index(drop='True')
+    weborama_accounts_df['account_id'] = pd.Series(ids_list)
+
+    # Создаем единый ИД, который является продолжением ИД из справочника MySQL
+    max_account_id = df_accounts['id'].max()+1 # забираем максимальный ИД из справояника MSSQL
+    ids_list = [i for i in range(max_account_id, len(weborama_accounts_df)+max_account_id)]
+    weborama_accounts_df = weborama_accounts_df.reset_index(drop='True')
+    weborama_accounts_df['id'] = pd.Series(ids_list)
+    # добавляем ведущий ноль к ИД аккаунта
+    weborama_accounts_df['acc_id_flag'] = weborama_accounts_df['id'].apply(lambda x: '0' + str(x) if len(str(x))<2 else str(x))
+    
+    # Объединяем датаФреймы в один большой справочник
+    full_accounts_df = pd.concat([df_accounts, weborama_accounts_df])
+    # нормализуем типы данных перед записью
+    full_accounts_int_lst  = config.full_accounts_int_lst
+    full_accounts_df = normalize_columns_types(full_accounts_df, full_accounts_int_lst)
+
     # Общий Справочник Аккаунтов
     # создаем общий список названий полей и типов данных 
     # этот список передаем в БД MSSQL для создания новой таблицы
@@ -165,72 +202,16 @@ def update_full_accounts_dict():
     full_accounts_dict = config.full_accounts_dict #'full_accounts_dict'
     
     createDBTable(db_name, full_accounts_dict, full_accounts_vars_list, flag='drop')
-    downloadTableToDB(db_name, full_accounts_dict, df_union_accounts)
+    downloadTableToDB(db_name, full_accounts_dict, full_accounts_df)
+
+
+# In[ ]:
+
+
+
 
 
 # In[6]:
-
-
-# функция добавляения новых аккаунтов в Общий справочник аккаунтов и в справочник аккаунтов Веборама
-def append_new_accs_to_dicts(media_plan_df):
-    check_media_plan_df = media_plan_df[['source', 'account_name', 'weborama_camp_name']]
-    
-    # забираем справочник Источников
-    full_source_types = config.full_source_types #'full_source_types'
-    df_sources = get_mssql_table(db_name, full_source_types)
-    
-    # добавляем в Медиаплан ИД Источников
-    check_media_plan_df = check_media_plan_df.merge(df_sources[['id', 'utm_source_metrika']], 
-                                                    how='left', left_on='source', right_on='utm_source_metrika')
-    check_media_plan_df = check_media_plan_df.rename(columns={'id': 'source_type_id'})
-    
-    
-    # Забираем Общий справочник Аккаунтов
-    full_accounts_dict = config.full_accounts_dict #'full_accounts_dict'
-    df_accounts = get_mssql_table(db_name, full_accounts_dict)
-    df_accounts = df_accounts[['id', 'source_type_id', 'weborama_account_name']]
-    
-    check_media_plan_df = check_media_plan_df.merge(df_accounts, how='left', left_on=['source_type_id', 'account_name'], 
-                                        right_on=['source_type_id', 'weborama_account_name'])
-    # оставляем записи, которые НЕ нашли сопоставления
-    check_media_plan_df = check_media_plan_df[check_media_plan_df['id'].isna()]
-    if check_media_plan_df.empty:
-        return 
-    # удаляем дубликаты и оставляем только нужные поля
-    check_media_plan_df = check_media_plan_df[['source_type_id', 'account_name']].drop_duplicates()
-    
-    # Переприсваиваем ИД аккаунтов
-    max_account_id = df_accounts['id'].max()+1 # забираем максимальный ИД из справояника MSSQL
-    ids_list = [i for i in range(max_account_id, len(check_media_plan_df)+max_account_id)]
-    check_media_plan_df = check_media_plan_df.reset_index(drop='True')
-    check_media_plan_df['id'] = pd.Series(ids_list)
-    # добавляем ведущий ноль к ИД аккаунта
-    check_media_plan_df['acc_id_flag'] = check_media_plan_df['id'].apply(lambda x: '0' + str(x) if len(str(x))<2 else str(x))
-    check_media_plan_df['weborama_account_name'] = check_media_plan_df['account_name']
-    
-     # забираем из БД MSSQL существующий справочник аккаунтов Веборама
-    weborama_accounts = config.weborama_accounts #'weborama_accounts'
-    df_weborama_accounts = get_mssql_table(db_name, weborama_accounts)
-    max_account_id = df_weborama_accounts['account_id'].max()+1 # забираем максимальный ИД из справояника MSSQL
-    ids_list = [i for i in range(max_account_id, len(check_media_plan_df)+max_account_id)]
-    check_media_plan_df = check_media_plan_df.reset_index(drop='True')
-    check_media_plan_df['account_id'] = pd.Series(ids_list)
-    
-    # приводим в порядок типы данных
-    int_lst = ['source_type_id', 'account_id', 'id']
-    check_media_plan_df = normalize_columns_types(check_media_plan_df, int_lst)
-    
-    # создаем отдельный датаФрейм для заливки аккаунтов Веборама
-    weborama_accs_df = check_media_plan_df[['source_type_id', 'account_name', 'account_id']]
-    # Заливаем новые аккаунты в Общий справочник
-    # table_name = 'full_accounts_dict'
-    downloadTableToDB(db_name, full_accounts_dict, check_media_plan_df)
-    # Заливаем новые аккаунты в справочник аккаунтов Веборама
-    # table_name = 'weborama_accounts'
-    downloadTableToDB(db_name, weborama_accounts, weborama_accs_df)
-
-
-# In[7]:
 
 
 # создаем функцию, которая перезаписывает справочник кампаний Веборама
@@ -261,7 +242,7 @@ def update_weborama_camp_dict(media_plan_df):
     downloadTableToDB(db_name, weborama_camp_dict, camp_dict_df)
 
 
-# In[8]:
+# In[7]:
 
 
 # создаем функцию, чтобы разбить Медиаплан по дням
@@ -328,7 +309,7 @@ def parse_mediaplan_by_days(media_plan_df):
         
 
 
-# In[9]:
+# In[8]:
 
 
 def merge_source_type_id(media_plan_df):
@@ -344,7 +325,7 @@ def merge_source_type_id(media_plan_df):
     return media_plan_df
 
 
-# In[10]:
+# In[9]:
 
 
 def merge_full_acc_id(media_plan_df):
@@ -372,7 +353,7 @@ def merge_full_acc_id(media_plan_df):
     return media_plan_df
 
 
-# In[11]:
+# In[10]:
 
 
 # функцию, которая определяет конец недели
@@ -382,7 +363,7 @@ def get_end_of_week(date):
     return end
 
 
-# In[12]:
+# In[11]:
 
 
 # создаем функцию, которая определяет дату отчета
@@ -400,7 +381,7 @@ def get_report_date(row):
 
 
 
-# In[13]:
+# In[12]:
 
 
 def main_mediaplan_parse_func(media_plan_link):
@@ -411,11 +392,9 @@ def main_mediaplan_parse_func(media_plan_link):
     # то обрабатываем их и записываем в БД MSSQL
     # если нет, то просто возвращаем справочник источников
     update_source_dict(media_plan_df)
-
+    
     # обновляем общий справочник аккаунтов из MySQL
-    update_full_accounts_dict()
-    # обновляем общий справочник аккаунтов в MSSQL
-    append_new_accs_to_dicts(media_plan_df)
+    update_full_accounts_dict(media_plan_df)
 
     # забираем справочник Источников
     # добавляем ИД источников к Медиаплану
@@ -449,134 +428,22 @@ def main_mediaplan_parse_func(media_plan_link):
     parse_mediaplan_by_days(media_plan_df)
 
 
-# In[17]:
+# In[15]:
 
 
 # main_mediaplan_parse_func(media_plan_link)
 
 
-# In[ ]:
+# In[14]:
 
 
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[15]:
-
-
-# media_plan_df = get_base_mediaplan(media_plan_link)
-
-
-# In[17]:
-
-
-# media_plan_df.head()
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-# # загружаем Медиаплан из Гугл докс и проводим первичную обработку
+# загружаем Медиаплан из Гугл докс и проводим первичную обработку
 # media_plan_df = get_base_mediaplan(media_plan_link)
 
 
 # In[ ]:
 
 
-# # если в Медиаплане появились новые источники
-# # то обрабатываем их и записываем в БД MSSQL
-# # если нет, то просто возвращаем справочник источников
-# update_source_dict(media_plan_df)
-
-
-# In[ ]:
-
-
-# update_full_accounts_dict()
-
-
-# In[ ]:
-
-
-# append_new_accs_to_dicts(media_plan_df)
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-# df_weborama_accounts = media_plan_df[['source_type_id', 'source', 'account_name']]
-# df_weborama_accounts = df_weborama_accounts.drop_duplicates(['source_type_id', 'account_name'])
-# df_weborama_accounts = df_weborama_accounts[df_weborama_accounts['source_type_id'] !=1]
-# df_weborama_accounts = df_weborama_accounts[df_weborama_accounts['source_type_id'] !=4]
-# df_weborama_accounts = df_weborama_accounts.sort_values('source_type_id')
-# df_weborama_accounts = df_weborama_accounts.reset_index(drop='True')
-
-# # Переприсваиваем ИД аккаунтов
-# # max_account_id = df_accounts['id'].max()+1 # забираем максимальный ИД из справояника MSSQL
-# # создаем нумерацию новых аккаунтов, начиная с последней записи из общего справочника аккаунтов
-# ids_list = [i for i in range(1, len(df_weborama_accounts)+1)]
-# # добавляем новое поле к таблице аккаунтов из Веборамы
-# df_weborama_accounts['id'] = pd.Series(ids_list)
-
-
-# In[ ]:
-
-
-# file_name = 'weborama_accounts.xlsx'
-# df_weborama_accounts.to_excel(os.path.join(file_path, file_name))
-
-
-# In[ ]:
-
-
 
 
 
@@ -596,44 +463,6 @@ def main_mediaplan_parse_func(media_plan_link):
 
 
 
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-# # приводим даты к формату ДатаВремя
-# media_plan_df['date_start'] = media_plan_df['date_start'].apply(lambda x: datetime.strptime(x, '%d.%m.%Y').strftime('%Y-%m-%d'))
-# media_plan_df['date_start'] = pd.to_datetime(media_plan_df['date_start'])
-# media_plan_df['date_finish'] = media_plan_df['date_finish'].apply(lambda x: datetime.strptime(x, '%d.%m.%Y').strftime('%Y-%m-%d'))
-# media_plan_df['date_finish'] = pd.to_datetime(media_plan_df['date_finish'])
-
-# # считаем общее кол-во дней во Флайте
-# media_plan_df['days_in_flight'] = ((media_plan_df['date_finish'] - media_plan_df['date_start']).dt.days) + 1
-
-
-# In[ ]:
-
-
-# # считаем каждый показатель План в день
-# media_plan_df['impressions_plan'] = (media_plan_df['impressions'] / media_plan_df['days_in_flight']).astype('float64').round(2)
-# media_plan_df['clicks_plan'] = (media_plan_df['clicks'] / media_plan_df['days_in_flight']).astype('float64').round(2)
-# media_plan_df['convs_plan'] = (media_plan_df['leads'] / media_plan_df['days_in_flight']).astype('float64').round(2)
-# media_plan_df['costs_without_nds_plan'] = (media_plan_df['costs_without_nds'] / media_plan_df['days_in_flight']).astype('float64').round(2)
-# media_plan_df['costs_nds_plan'] = (media_plan_df['costs_nds'] / media_plan_df['days_in_flight']).astype('float64').round(2)
-# media_plan_df['reach_plan'] = (media_plan_df['reaches'] / media_plan_df['days_in_flight']).astype('float64').round(2)
-# media_plan_df['views_plan'] = (media_plan_df['views'] / media_plan_df['days_in_flight']).astype('float64').round(2)
-
-
-# In[ ]:
-
-
-# parse_mediaplan_by_days(media_plan_df)
 
 
 # In[ ]:
