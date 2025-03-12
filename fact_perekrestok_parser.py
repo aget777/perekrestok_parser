@@ -30,7 +30,7 @@ pd.set_option('display.max_colwidth', None)
 pd.set_option('display.max_rows', None)
 
 
-# In[5]:
+# In[3]:
 
 
 def main_reload_fact_table(media_fact_link):
@@ -77,25 +77,25 @@ def main_reload_fact_table(media_fact_link):
     # return df
 
 
-# In[9]:
+# In[4]:
 
 
 # main_reload_fact_table(media_fact_link)
 
 
-# In[23]:
+# In[5]:
 
 
 # df = main_reload_fact_table(media_fact_link)
 
 
-# In[18]:
+# In[ ]:
 
 
 
 
 
-# In[19]:
+# In[ ]:
 
 
 
