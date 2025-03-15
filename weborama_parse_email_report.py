@@ -66,6 +66,34 @@ def get_type_from_insertion(insertion):
         return 'multiformat'
     if 'type_rewarded-video' in insertion:
         return 'rewarded-video'
+
+
+    if 'type_app-promo' in insertion:
+        return 'app-promo'
+    if 'type_display' in insertion:
+        return 'display'
+    if 'type_fullscreen' in insertion:
+        return 'fullscreen'
+    if 'type_interstitial' in insertion:
+        return 'interstitial'
+    if 'type_olv' in insertion:
+        return 'olv'
+    if 'type_premium' in insertion:
+        return 'premium'
+    if 'type_preroll' in insertion:
+        return 'preroll'
+    if 'type_rich-media' in insertion:
+        return 'rich-media'
+    if 'type_smart-tv' in insertion:
+        return 'smart-tv'
+    if 'type_bonus' in insertion:
+        return 'bonus'
+    if 'type_app-promo' in insertion:
+        return 'app-promo'
+    if 'type_in-image' in insertion:
+        return 'in-image'
+
+    
     return 'other'
 
 
@@ -198,63 +226,6 @@ def get_weborama_standart_weekly(file_name):
     
     df = normalize_columns_types(df, int_lst)
 
-    # # парсим Тип РК
-    # df['type'] = df['insertion'].apply(get_type_from_insertion)
-    # # парсим название Категории
-    # df['category'] = df['insertion'].apply(get_category_from_insertion)
-    # # парсим название Продукта
-    # df['product'] = df['insertion'].apply(get_product_from_insertion)
-    # # парсим название флайта
-    # df['flight'] = df['insertion'].apply(lambda x: x.split('_igronik_media_')[1] if '_igronik_media_' in x else 'other')
-    # # создаем общее название РК
-    # df['weborama_camp_name'] = df['flight'] + '|format_' + df['category'] + '|type_' + df['type']
-
-    # # добавляем ИД источников к основному файлу
-    # df = merge_source_type_id(df)
-    # # забираем справочник Аккаунтов
-    # # добавляем ИД аккаунтов к Медиаплану
-    # df = merge_full_acc_id(df)
-
-    # # добавляем инфо из справочника Кампаний
-    # # дата начала и окончания флайта, внутриенний ИД РК и номер флайта
-    # weborama_camp_dict = config.weborama_camp_dict #'weborama_camp_dict'
-    # camp_dict_df = get_mssql_table(db_name, weborama_camp_dict)
-    
-    # df = df.merge(camp_dict_df[['weborama_key_camp', 'inner_campaign_id', 'date_start', 'date_finish', 'flight_name']], 
-    #                 how='left', left_on='weborama_key_camp', right_on='weborama_key_camp')
-    
-    # # Если в ежедневных отчетах есть РК, которые не нашли сопоставляения со справочником, мы удаляем такие строки
-    # # df = df.dropna(subset='inner_campaign_id')
-    # df['inner_campaign_id'] = df['inner_campaign_id'].fillna(0)
-    # df['date_start'] = df['date_start'].fillna('01.01.2025')
-    # df['date_finish'] = df['date_finish'].fillna('01.01.2025')
-    # df['flight_name'] = df['flight_name'].fillna('no_name')
-    
-    # # df[~df['inner_campaign_id'].isna()]
-    # # приводим даты к формату ДатаВремя
-    # df['date_start'] = df['date_start'].apply(lambda x: datetime.strptime(x, '%d.%m.%Y').strftime('%Y-%m-%d'))
-    # df['date_start'] = pd.to_datetime(df['date_start'])
-    # df['date_finish'] = df['date_finish'].apply(lambda x: datetime.strptime(x, '%d.%m.%Y').strftime('%Y-%m-%d'))
-    # df['date_finish'] = pd.to_datetime(df['date_finish'])
-    
-    # # приводим к формату Дата
-    # df['date'] = pd.to_datetime(df['date'])
-    # # считаем общее кол-во дней во Флайте
-    # df['days_in_flight'] = ((df['date_finish'] - df['date_start']).dt.days) + 1
-    # # считаем кол-во дней до окончания флайта
-    # df['rest_days'] = ((df['date_finish'] - df['date']).dt.days) + 1
-    
-    # # получаем конец недели, чтобы определить дату отчета
-    # df['end_of_week'] = df['date'].apply(get_end_of_week)
-    # # определяем дату отчета (либо конец недели, либо окончание периода)
-    # df['report_date'] = df.apply(get_report_date, axis=1)
-    
-    # # нормализуем типы данных
-    # int_lst = ['campaign_id', 'site_offer_id', 'insertion_id', 'impressions', 'clicks', \
-    #            'reach_cum', 'video_views_25', 'video_views_50',\
-    #           'video_views_75', 'video_views_100', 'viewable_views', 'source_type_id', 'main_acc_id',\
-    #           'inner_campaign_id', 'days_in_flight', 'rest_days']
-    # df = normalize_columns_types(df, int_lst)
     df = get_merge_items(df)
     return df
 
@@ -371,13 +342,13 @@ def main_weborama_parse_email_report(keywords_list):
 
 
 
-# In[ ]:
+# In[11]:
 
 
 # main_weborama_parse_email_report(keywords_list)
 
 
-# In[11]:
+# In[12]:
 
 
 # files_list = os.listdir(file_path)
@@ -387,11 +358,11 @@ def main_weborama_parse_email_report(keywords_list):
 #             print('Файл найден')
 #             target_file_name = file_name
 #             df = get_weborama_standart_weekly(target_file_name)
-#             update_weborama_weekly(df)
+#             update_weborama_weekly(df) #update_weborama_weekly(df, replace='True')
 #             os.remove(os.path.join(file_path, file_name))
 
 
-# In[12]:
+# In[13]:
 
 
 def rewrite_weborama_db_weekly_report():
@@ -421,7 +392,7 @@ def rewrite_weborama_db_weekly_report():
     downloadTableToDB(db_name, weborama_report_table, df)
 
 
-# In[13]:
+# In[14]:
 
 
 # rewrite_weborama_db_weekly_report()
@@ -475,7 +446,7 @@ def rewrite_weborama_db_weekly_report():
 
 
 
-# In[ ]:
+# In[15]:
 
 
 def get_weborama_regions_table(file_name):
