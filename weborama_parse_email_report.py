@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import pandas as pd
@@ -27,7 +27,7 @@ geo_file_name = 'X5_Perekrestok_Geo.xlsx'
 weekly_file_name = 'Weborama_Standart_Weekly.xlsx'
 
 
-# In[2]:
+# In[ ]:
 
 
 # Включаем отображение всех колонок
@@ -37,104 +37,52 @@ pd.set_option('display.max_colwidth', None)
 pd.set_option('display.max_rows', None)
 
 
-# In[3]:
+# In[ ]:
 
 
 # функция для отпределения Типа РК
 # на вход принимает 1 поле insertion из датаФрейма и возвращает название Типа
 # если вхождений нет, вернет others
-def get_type_from_insertion(insertion):
-    if 'type_cross-stream' in insertion:
-        return 'cross-stream'
-    if 'type_videobanner' in insertion:
-        return 'videobanner'
-    if 'type_in-stream' in insertion:
-        return 'in-stream'
-    if 'type_multiroll' in insertion:
-        return 'multiroll'
-    if 'type_banner' in insertion:
-        return 'banner'
-    if 'type_universal' in insertion:
-        return 'universal'
-    if 'type_promobanner' in insertion:
-        return 'promobanner'
-    if 'type_main' in insertion:
-        return 'main'
-    if 'type_shopable-ads' in insertion:
-        return 'shopable-ads'
-    if 'type_multiformat' in insertion:
-        return 'multiformat'
-    if 'type_rewarded-video' in insertion:
-        return 'rewarded-video'
+def parse_type_category(row, flag='type_'):
+    if flag in row:
+        start_index = row.find(flag)
+        cut_row = row[start_index+len(flag):]
+        end_index = cut_row.find('|')
+        return cut_row[:end_index] if end_index!=-1 else cut_row
+    else:
+        return 'other'
 
 
-    if 'type_app-promo' in insertion:
-        return 'app-promo'
-    if 'type_display' in insertion:
-        return 'display'
-    if 'type_fullscreen' in insertion:
-        return 'fullscreen'
-    if 'type_interstitial' in insertion:
-        return 'interstitial'
-    if 'type_olv' in insertion:
-        return 'olv'
-    if 'type_premium' in insertion:
-        return 'premium'
-    if 'type_preroll' in insertion:
-        return 'preroll'
-    if 'type_rich-media' in insertion:
-        return 'rich-media'
-    if 'type_smart-tv' in insertion:
-        return 'smart-tv'
-    if 'type_bonus' in insertion:
-        return 'bonus'
-    if 'type_app-promo' in insertion:
-        return 'app-promo'
-    if 'type_in-image' in insertion:
-        return 'in-image'
-
-    
-    return 'other'
+# In[ ]:
 
 
-# In[4]:
 
 
-# функция для отпределения Категории РК
-# на вход принимает 1 поле insertion из датаФрейма и возвращает название Категории
-# если вхождений нет, вернет others
-def get_category_from_insertion(insertion):
-    if 'format_olv' in insertion:
-        return 'olv'
-    if 'format_banner' in insertion:
-        return 'banner'
-    return 'other'
 
-
-# In[5]:
+# In[ ]:
 
 
 # функция для отпределения Продукта РК
 # на вход принимает 1 поле insertion из датаФрейма и возвращает название Продукта
 # если вхождений нет, вернет others
 def get_product_from_insertion(insertion):
-    if 'cpv1' in insertion:
-        return 'CVP1'
-    if 'cpv2' in insertion:
-        return 'CVP2'
-    if 'ge' in insertion:
-        return 'GE'
+    if '_cvp1_' in insertion:
+        return 'cvp1'
+    if '_cvp2_' in insertion:
+        return 'cvp2'
+    if '_ge_' in insertion:
+        return 'ge'
     return 'other'
 
 
-# In[6]:
+# In[ ]:
 
 
 def get_merge_items(df):
     # парсим Тип РК
-    df['type'] = df['insertion'].apply(get_type_from_insertion)
+    df['type'] = df['insertion'].apply(parse_type_category, flag='type_')
     # парсим название Категории
-    df['category'] = df['insertion'].apply(get_category_from_insertion)
+    df['category'] = df['insertion'].apply(parse_type_category, flag='format_')
     # парсим название Продукта
     df['product'] = df['insertion'].apply(get_product_from_insertion)
     # парсим название флайта
@@ -200,7 +148,7 @@ def get_merge_items(df):
     return df
 
 
-# In[7]:
+# In[ ]:
 
 
 def get_weborama_standart_weekly(file_name):
@@ -230,7 +178,7 @@ def get_weborama_standart_weekly(file_name):
     return df
 
 
-# In[8]:
+# In[ ]:
 
 
 def get_weborama_db_report(df):
@@ -252,7 +200,7 @@ def get_weborama_db_report(df):
     return df
 
 
-# In[9]:
+# In[ ]:
 
 
 # функция берет отчет xlsx за новый день из папки
@@ -317,7 +265,7 @@ def update_weborama_weekly(df, replace='False'):
     downloadTableToDB(db_name, weborama_report_table, df)
 
 
-# In[10]:
+# In[ ]:
 
 
 def main_weborama_parse_email_report(keywords_list):
@@ -342,13 +290,13 @@ def main_weborama_parse_email_report(keywords_list):
 
 
 
-# In[11]:
+# In[ ]:
 
 
 # main_weborama_parse_email_report(keywords_list)
 
 
-# In[12]:
+# In[ ]:
 
 
 # files_list = os.listdir(file_path)
@@ -362,7 +310,7 @@ def main_weborama_parse_email_report(keywords_list):
 #             os.remove(os.path.join(file_path, file_name))
 
 
-# In[13]:
+# In[ ]:
 
 
 def rewrite_weborama_db_weekly_report():
@@ -392,7 +340,7 @@ def rewrite_weborama_db_weekly_report():
     downloadTableToDB(db_name, weborama_report_table, df)
 
 
-# In[14]:
+# In[ ]:
 
 
 # rewrite_weborama_db_weekly_report()
@@ -446,7 +394,7 @@ def rewrite_weborama_db_weekly_report():
 
 
 
-# In[15]:
+# In[ ]:
 
 
 def get_weborama_regions_table(file_name):

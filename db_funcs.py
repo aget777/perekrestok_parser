@@ -72,14 +72,20 @@ def dropTable(db_name, table_name):
     sql = f"""IF EXISTS(SELECT *
               FROM   [dbo].{table_name})
       DROP TABLE [dbo].{table_name}"""
+
+    try:
+        cursor.execute(sql)
+        conn.commit()
+        print(f'Таблица: {table_name} успешно удалена в БД: {db_name}')
+        print('#' * 10)
+        
+    except:
+        print(f'Таблицы {table_name} не существует в БД {db_name}')
     
-    cursor.execute(sql)
-    conn.commit()
     conn.close()
     cursor.close() 
     
-    print(f'Таблица: {table_name} успешно удалена в БД: {db_name}')
-    print('#' * 10)
+    
 
 
 # In[ ]:
@@ -98,10 +104,11 @@ def createDBTable(db_name, table_name, vars_list, flag='create'):
     # cursor = conn.cursor()
 
     if flag=='drop':
-        try:
-            dropTable(db_name, table_name)
-        except:
-            print(f'Таблицы {table_name} не существует в БД {db_name}')
+        dropTable(db_name, table_name)
+        # try:
+        #     dropTable(db_name, table_name)
+        # except:
+        #     print(f'Таблицы {table_name} не существует в БД {db_name}')
             
     conn = get_mssql_connection(db_name)
     cursor = conn.cursor()
