@@ -46,9 +46,13 @@ pd.set_option('display.max_rows', None)
 # функция забирает медиаплан по УРЛ ссылке
 # приводит в поряддок названия полей, типы данных, добавляет НДС
 # и возвращает датаФрейм
-def get_base_mediaplan(media_plan_link):
-    media_plan_df = pd.read_csv(media_plan_link)
-    
+def get_base_mediaplan(media_plan_link, report='plan'):
+    if report=='plan': 
+        media_plan_df = pd.read_csv(media_plan_link, header=None, usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
+    if report=='fact':
+        media_plan_df = pd.read_csv(media_plan_link, header=None, usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
+
+    media_plan_df = media_plan_df.rename(columns=media_plan_df.iloc[0]).drop(media_plan_df.index[0]).reset_index(drop=True)
     # приводим названия полей к общему стандарту
     media_plan_df = media_plan_df.rename(columns={'DateStart': 'date_start', 'DateFinish': 'date_finish', 'Флайт': 'flight',
         'Направление рк': 'weborama_camp_name', 'Источник': 'source', 'Тип закупки': 'rotation_type', 
@@ -386,7 +390,7 @@ def get_report_date(row):
 
 def main_mediaplan_parse_func(media_plan_link):
     # загружаем Медиаплан из Гугл докс и проводим первичную обработку
-    media_plan_df = get_base_mediaplan(media_plan_link)
+    media_plan_df = get_base_mediaplan(media_plan_link, report='plan')
     
     # если в Медиаплане появились новые источники
     # то обрабатываем их и записываем в БД MSSQL
@@ -428,7 +432,7 @@ def main_mediaplan_parse_func(media_plan_link):
     parse_mediaplan_by_days(media_plan_df)
 
 
-# In[15]:
+# In[13]:
 
 
 # main_mediaplan_parse_func(media_plan_link)
@@ -438,13 +442,13 @@ def main_mediaplan_parse_func(media_plan_link):
 
 
 # загружаем Медиаплан из Гугл докс и проводим первичную обработку
-# media_plan_df = get_base_mediaplan(media_plan_link)
+# media_plan_df = get_base_mediaplan(media_plan_link, report='plan')
 
 
-# In[ ]:
+# In[15]:
 
 
-
+# media_plan_df.head()
 
 
 # In[ ]:

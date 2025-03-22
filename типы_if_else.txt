@@ -1,0 +1,52 @@
+# def get_type_from_insertion(insertion):
+#     if 'type_cross-stream' in insertion:
+#         return 'cross-stream'
+#     if 'type_videobanner' in insertion:
+#         return 'videobanner'
+#     if 'type_in-stream' in insertion:
+#         return 'in-stream'
+#     if 'type_multiroll' in insertion:
+#         return 'multiroll'
+#     if 'type_banner' in insertion:
+#         return 'banner'
+#     if 'type_universal' in insertion:
+#         return 'universal'
+#     if 'type_promobanner' in insertion:
+#         return 'promobanner'
+#     if 'type_main' in insertion:
+#         return 'main'
+#     if 'type_shopable-ads' in insertion:
+#         return 'shopable-ads'
+#     if 'type_multiformat' in insertion:
+#         return 'multiformat'
+#     if 'type_rewarded-video' in insertion:
+#         return 'rewarded-video'
+
+
+#     if 'type_app-promo' in insertion:
+#         return 'app-promo'
+#     if 'type_display' in insertion:
+#         return 'display'
+#     if 'type_fullscreen' in insertion:
+#         return 'fullscreen'
+#     if 'type_interstitial' in insertion:
+#         return 'interstitial'
+#     if 'type_olv' in insertion:
+#         return 'olv'
+#     if 'type_premium' in insertion:
+#         return 'premium'
+#     if 'type_preroll' in insertion:
+#         return 'preroll'
+#     if 'type_rich-media' in insertion:
+#         return 'rich-media'
+#     if 'type_smart-tv' in insertion:
+#         return 'smart-tv'
+#     if 'type_bonus' in insertion:
+#         return 'bonus'
+#     if 'type_app-promo' in insertion:
+#         return 'app-promo'
+#     if 'type_in-image' in insertion:
+#         return 'in-image'
+
+    
+#     return 'other'
