@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[7]:
+# In[4]:
 
 
 import imaplib
@@ -55,8 +55,15 @@ def get_connection():
 # In[4]:
 
 
-def get_file_from_email(keyword):
+# создаем функцию, которая проверяет наличие письма на почте и сохраняет файл в 2 папки - временную и постоянную
+# На вход передаем ключевое слово, которое должно содержаться в заголовке письма
+# и тип отчета, которй будем в дальнейшем парсить weekly / geo
+# если письмо есть на почте 
+# один файл сохраняем в папку storage - здесь хранится вся история, файлы не удаляются
+# вторую копию файла отправляем в папку weborama - после парсинга и записи в БД, чистим папку
 
+def get_file_from_email(keyword):
+   
     imap = get_connection()
     imap.select("INBOX")
     
@@ -90,6 +97,17 @@ def get_file_from_email(keyword):
             curr_date = (datetime.now().date()  - timedelta(days=1)).strftime('%Y_%m_%d')
             filename = keyword + '_' + str(curr_date) + '.xlsx'
             print (f'---- нашли вложение {filename}')
+            # в зависиомсти от типа отчета прописывам путь к папке для сохранения
+            if 'weekly' in keyword.lower():
+                print('weekly')
+                file_path = os.path.join(config.email_file_path, 'weekly')
+                file_path_storage = os.path.join(config.files_storage, 'weekly')
+            if 'geo' in keyword.lower():
+                print('geo')
+                file_path = os.path.join(config.email_file_path, 'geo')
+                file_path_storage = os.path.join(config.files_storage, 'geo')
+                
+            # file_path = os.path.join(file_path, file_name)
             fp = open(os.path.join(file_path, filename), 'wb')
             fp.write(part.get_payload(decode=1))
             fp.close
