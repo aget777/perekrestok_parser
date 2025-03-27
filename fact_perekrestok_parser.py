@@ -37,7 +37,7 @@ def main_reload_fact_table(media_fact_link):
     # функция забирает факт по УРЛ ссылке
     # приводит в поряддок названия полей, типы данных, добавляет НДС
     # и возвращает датаФрейм
-    df = get_base_mediaplan(media_fact_link)
+    df = get_base_mediaplan(media_fact_link, report='fact')
     df = df.rename(columns={'Дата отчета': 'report_date', 'leads': 'convs', 'reaches': 'reach'})
     
      # забираем справочник Источников
@@ -87,6 +87,24 @@ def main_reload_fact_table(media_fact_link):
 
 
 # df = main_reload_fact_table(media_fact_link)
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
 
 
 # In[ ]:

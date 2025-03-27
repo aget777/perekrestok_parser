@@ -47,11 +47,17 @@ pd.set_option('display.max_rows', None)
 # приводит в поряддок названия полей, типы данных, добавляет НДС
 # и возвращает датаФрейм
 def get_base_mediaplan(media_plan_link, report='plan'):
+    # для того, чтобы исключить ошибки, если в гугл доксе добавили новые поля
+    # или случайно сделали какие-то записи в соседних колонках
+    # мы явно указываем номера столбцов, которые нам нужны
     if report=='plan': 
         media_plan_df = pd.read_csv(media_plan_link, header=None, usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
+        # в таблице факт на 1 колонку больше - т.к. забираем Дату отчета для дашборда
     if report=='fact':
         media_plan_df = pd.read_csv(media_plan_link, header=None, usecols=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
-
+        
+    # после тго, как оставили только указанные номера колонок
+    # необходимо забрать заголовки столбцов из 1-ой строки и перенести их наверх в заголовки
     media_plan_df = media_plan_df.rename(columns=media_plan_df.iloc[0]).drop(media_plan_df.index[0]).reset_index(drop=True)
     # приводим названия полей к общему стандарту
     media_plan_df = media_plan_df.rename(columns={'DateStart': 'date_start', 'DateFinish': 'date_finish', 'Флайт': 'flight',
@@ -87,7 +93,12 @@ def update_source_dict(media_plan_df):
     # необходимо его пересоздать в MSSQL
     # при повторных подключениях будем работать именно с MSSQL
     source_types = config.source_types #'source_types'
+    
+    db_name = 'tenant_perekrestok'
+    
     df_sources = get_mysql_full_dict_table(db_name, source_types)
+
+    db_name = config.db_name
     
     df_sources = df_sources.drop(['created_at', 'updated_at'], axis=1)
     
@@ -141,11 +152,17 @@ def update_source_dict(media_plan_df):
 def update_full_accounts_dict(media_plan_df):
     # забираем справочник аккаунтов из БД MySQL
     accounts = config.accounts #'accounts'
+
+    db_name = 'tenant_perekrestok'
+    
     df_accounts = get_mysql_full_dict_table(db_name, accounts)
     
     # забираем справочник источников из БД MySQL
     source_types = config.source_types #'source_types'
     df_sources = get_mysql_full_dict_table(db_name, source_types)
+
+    db_name = config.db_name
+    
     # убираем лишние поля
     df_sources = df_sources.drop(['created_at', 'updated_at'], axis=1)
     df_sources = df_sources.rename(columns={'id': 'source_type_id'})

@@ -23,6 +23,9 @@ def normalize_columns_types(df, int_lst=list(), float_lst=list()):
     varchar_lst = list(df.columns) #df.loc[:,df.dtypes==np.object].columns # Через всторенный метод находим поля с текстовыми данными
     varchar_lst = list(set(varchar_lst) - set(int_lst) - set(float_lst)) # исключаем из списка с текстовыми данными поля Int и Float
     df[varchar_lst] = df[varchar_lst].apply(lambda x: x.astype('str').str.lower().str.strip())
+    df[varchar_lst] = df[varchar_lst].apply(lambda x: x.str.replace('nan', ''))
+    df[varchar_lst] = df[varchar_lst].apply(lambda x: x.str.replace("'", ""))
+    
     # Обрабатываем поля с типом данных Int
     df[int_lst] = df[int_lst].fillna('0')
     df[int_lst] = df[int_lst].apply(lambda x: x.astype('str').str.replace('\xa0', '').str.replace(',', '.').str.replace(' ', ''))
