@@ -167,6 +167,9 @@ def update_full_accounts_dict(media_plan_df):
     df_sources = df_sources.drop(['created_at', 'updated_at'], axis=1)
     df_sources = df_sources.rename(columns={'id': 'source_type_id'})
     df_accounts = df_accounts[['id', 'source_type_id', 'account_name', 'account_id', 'acc_id_flag']]
+    
+    df_accounts = df_accounts.drop_duplicates(['source_type_id'])
+    
     df_accounts['weborama_account_name'] = 'x5_perekrestok'
     
     # # добавляем к справочнику Аккаунтов названия Источников
